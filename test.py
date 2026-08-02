@@ -44,14 +44,10 @@ def setup_system(ecs: EntityComponentSystem) -> None:
 	ecs.set_resource(DeltaTime(dt=0.016))
 
 	# Spawn Player
-	player = ecs.create_entity()
-	ecs.add_component(player, Position(0, 0))
-	ecs.add_component(player, Velocity(10, 5))
-	ecs.add_component(player, Health(100))
+	player = ecs.create_entity_with(Position(0, 0), Velocity(10, 5), Health(100))
 
 	# Spawn Weapon (Attached as child to Player)
-	weapon = ecs.create_entity()
-	ecs.add_component(weapon, Position(0, 0))
+	weapon = ecs.create_entity_with(Position(0, 0))
 	ecs.set_parent(child=weapon, parent=player)
 
 def movement_system(ecs: EntityComponentSystem) -> None:
@@ -85,7 +81,7 @@ if __name__ == "__main__":
 
 	# Register Systems to Stages
 	ecs.add_system(setup_system, Stage.STARTUP)
-	ecs.add_system(movement_system, Stage.UPDATE)
+	ecs.add_system(movement_system)
 	ecs.add_system(combat_system, Stage.POST_UPDATE)
 	ecs.add_system(render_system, Stage.RENDER)
 

@@ -26,32 +26,25 @@ class Stage(Enum):
 # Event Manager Class
 
 class EventManager:
-	"""Buffers events sent during a frame and clears them at Cleanup."""
-
 	def __init__(self):
 		self._events: dict[Type, list[Any]] = {}
 
 	def send(self, event: Any) -> None:
-		"""Publishes an event instance."""
 		event_type = type(event)
 		if event_type not in self._events:
 			self._events[event_type] = []
 		self._events[event_type].append(event)
 
 	def read(self, event_type: Type[T]) -> list[T]:
-		"""Reads all buffered events of a specific type for this frame."""
 		return self._events.get(event_type, [])
 
 	def clear(self) -> None:
-		"""Flushes all events at the end of the frame."""
 		self._events.clear()
 
 # ================================================================================================ #
 # Component Registry Class
 
 class ComponentRegistry:
-	"""Maps component types to bit flags for ultra-fast bitwise queries."""
-
 	def __init__(self):
 		self._masks: dict[Type, int] = {}
 		self._next_bit = 0
@@ -119,8 +112,12 @@ class EntityComponentSystem:
 		self._entity_masks[entity] = 0
 		return entity
 
+	def create_entity_with(self, *components: Any) -> int:
+		entity = self.create_entity()
+		self.add_components(entity, *components)
+		return entity
+
 	def destroy_entity(self, entity: int) -> None:
-		"""Destroys entity, its components, and recursively despawns children."""
 		if entity not in self._entity_masks:
 			return
 
@@ -147,7 +144,6 @@ class EntityComponentSystem:
 		self._free_entities.append(entity)
 
 	def set_parent(self, child: int, parent: int) -> None:
-		"""Sets a parent-child relationship between two entities."""
 		self.add_component(child, Parent(parent))
 		if not self.has_component(parent, Children):
 			self.add_component(parent, Children())
@@ -166,6 +162,10 @@ class EntityComponentSystem:
 		self._components[c_type][entity] = component
 		self._entity_masks[entity] |= c_mask
 		self._track_addition(c_type, entity)
+
+	def add_components(self, entity: int, *components: Any) -> None:
+		for component in components:
+			self.add_component(entity, component)
 
 	def remove_component(self, entity: int, component_type: Type) -> None:
 		c_mask = self._registry.get_mask(component_type)
@@ -197,6 +197,18 @@ class EntityComponentSystem:
 		for entity, mask in self._entity_masks.items():
 			if (mask & query_mask) == query_mask:
 				yield entity, *(pool[entity] for pool in pools)
+
+	def query_first(self, *component_types: Type):
+		"""Returns the first entity found with the matching component types."""
+		query_mask = self._registry.get_query_mask(*component_types)
+		if query_mask == 0: return
+
+		pools = [self._components[c] for c in component_types if c in self._components]
+		if len(pools) < len(component_types): return
+
+		for entity, mask in self._entity_masks.items():
+			if (mask & query_mask) == query_mask:
+				return entity, *(pool[entity] for pool in pools)
 
 	def get_added(self, component_type: Type) -> set[int]:
 		"""Returns entity IDs that gained this component type THIS frame."""
@@ -231,6 +243,10 @@ class EntityComponentSystem:
 	def add_system(self, system: Callable, stage: Stage = Stage.UPDATE) -> None:
 		if system not in self._stages[stage]:
 			self._stages[stage].append(system)
+
+	def add_systems(self, stage: Stage, *systems: Callable) -> None:
+		for system in systems:
+			self.add_system(system, stage)
 
 	def startup(self) -> None:
 		if not self._has_started:
