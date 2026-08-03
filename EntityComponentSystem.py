@@ -4,7 +4,7 @@
 # Imports
 
 from enum import Enum, auto
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Callable, Optional, Type, TypeVar
 
 # ================================================================================================ #
 # Constants
@@ -147,7 +147,9 @@ class EntityComponentSystem:
 		self.add_component(child, Parent(parent))
 		if not self.has_component(parent, Children):
 			self.add_component(parent, Children())
-		self.get_component(parent, Children).entities.add(child)
+		component = self.get_component(parent, Children)
+		if component is not None:
+			component.entities.add(child)
 
 	# ================================================== #
 	# Component Management
@@ -178,8 +180,10 @@ class EntityComponentSystem:
 		c_mask = self._registry.get_mask(component_type)
 		return bool(self._entity_masks.get(entity, 0) & c_mask)
 
-	def get_component(self, entity: int, component_type: Type[T]) -> T:
-		return self._components[component_type][entity]
+	def get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
+		result = self._components.get(component_type, None)
+		if result is None: return None
+		return result.get(entity, None)
 
 	# ================================================== #
 	#  Queries & Observers
